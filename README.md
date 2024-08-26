@@ -1,5 +1,5 @@
 # trust-uri-validator-extension
-Browser extension to validate a Trust URI present in a social media account page. As specified in Internet-Draft Organization Trust Relationship Protocol https://datatracker.ietf.org/doc/draft-org-trust-relationship-protocol/.
+Browser extension to validate a Trust URI present in a social media account page. As specified in [Internet-Draft Organization Trust Relationship Protocol](https://datatracker.ietf.org/doc/draft-org-trust-relationship-protocol/).
 
-This browser extension is based on the Microsoft Cross-Platform Origin of Content (XPOC) Framework https://christianpaquin.github.io/2023-09-08-xpoc-framework.html.
+This project is based on the Microsoft [sample browser extension](https://github.com/microsoft/xpoc-framework/tree/main/samples/browser-extension) from the [Cross-Platform Origin of Content (XPOC) Framework](https://microsoft.github.io/xpoc-framework/).
 
