@@ -1,0 +1,11 @@
+# Dependency directories
+node_modules/
+
+# compiled js files
+js/*
+
+# XPOC lib
+lib/*
+
+# compiled extension
+dist/*
