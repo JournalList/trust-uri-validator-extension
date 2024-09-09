@@ -4,7 +4,7 @@
 import {
     Platforms,
     type Account
-} from 'xpoc-ts-lib';
+} from 'xpoc-framework';
 
 const DOWNLOAD_TIMEOUT = Number.parseInt(
     process.env.DOWNLOAD_TIMEOUT ?? ('5000' as string),

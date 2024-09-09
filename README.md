@@ -1,7 +1,7 @@
 # trust-uri-validator-extension
-This project contains a Edge/Chrome/Firefox Browser Extensionto validate a Trust URI present in a social media account page, as specified in [Internet-Draft Organization Trust Relationship Protocol](https://datatracker.ietf.org/doc/draft-org-trust-relationship-protocol/).
+This project contains a Edge/Chrome/Firefox Browser Extension to validate a Trust URI present in a social media account page, as specified in [Internet-Draft Organization Trust Relationship Protocol](https://datatracker.ietf.org/doc/draft-org-trust-relationship-protocol/).
 
-The code is based on the Microsoft [sample browser extension](https://github.com/microsoft/xpoc-framework/tree/main/samples/browser-extension) from the [Cross-Platform Origin of Content (XPOC) Framework](https://microsoft.github.io/xpoc-framework/).
+The code is based on the Microsoft [sample browser extension](https://github.com/microsoft/xpoc-framework/tree/main/samples/browser-extension) from the [Cross-Platform Origin of Content (XPOC) Framework](https://microsoft.github.io/xpoc-framework/); it also uses that project's library to canonicalize account URLs.
 
 ## Setup
 
@@ -15,8 +15,6 @@ To build the extension locally, run:
 npm install
 npm run build
 ```
-
-This step will also retrieve the XPOC library which is a project dependency (TODO: do that!)
 
 2. Install the extension in a browser:  
 
@@ -44,6 +42,3 @@ When visiting a page with a Trust URI (for example, `trust://example.com!`), rig
 
 # TODO before upstream PR
 * change XPOC icons
-* download XPOC library during build
-* rename xpoc-lib.ts (file and in rollup)
-* remove this TODO section

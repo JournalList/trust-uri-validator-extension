@@ -207,7 +207,7 @@ function removeCallback(node: Node): void {
     console.log(`Scanner2: remove: ${node.textContent}`);
     if (
         (node as HTMLElement).nodeName === 'IMG' &&
-        (node as HTMLElement).hasAttribute('xpoc') // TODO: FIXME: anything to rename here?
+        (node as HTMLElement).hasAttribute('trust')
     ) {
         console.log(`remove: ${node as HTMLElement}`);
     }

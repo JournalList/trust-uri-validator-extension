@@ -34,6 +34,6 @@
     "rollup-plugin-external-globals": "^0.8.0",
     "rollup-plugin-typescript2": "^0.35.0",
     "typescript": "^5.1.6",
-    "xpoc-ts-lib": "file:lib"
+    "xpoc-framework": "github:microsoft/xpoc-framework#npm-install"
   }
 }

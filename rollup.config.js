@@ -132,11 +132,11 @@ const background_firefox = {
     input: 'src/background.ts',
     output: {
         dir: 'dist/firefox',
-        // keeps xpoc-ts-lib in a separate file instead of bundling it into background.js
+        // keeps xpoc-framework in a separate file instead of bundling it into background.js
         manualChunks: {
-            'xpoc-ts-lib': ['xpoc-ts-lib'],
+            'xpoc-framework': ['xpoc-framework'],
         },
-        chunkFileNames: 'xpoc-ts-lib.js',
+        chunkFileNames: 'xpoc-framework.js',
         ...commonOutput,
     },
     plugins: [...commonPlugins],
@@ -188,11 +188,11 @@ const offscreen = {
     input: 'src/offscreen.ts',
     output: {
         dir: 'dist/chrome',
-        // keeps xpoc-ts-lib in a separate imported file
+        // keeps xpoc-framework in a separate imported file
         manualChunks: {
-            'xpoc-ts-lib': ['xpoc-ts-lib'],
+            'xpoc-framework': ['xpoc-framework'],
         },
-        chunkFileNames: 'xpoc-ts-lib.js',
+        chunkFileNames: 'xpoc-framework.js',
         ...commonOutput,
     },
     plugins: [
