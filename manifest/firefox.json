@@ -16,7 +16,7 @@
         "type": "module"
     },
     "icons": {
-        "128": "icons/xpoc128x128.png"
+        "128": "icons/journalist128x128.png"
     },
     "action": {
         "default_popup": "popup.html"
