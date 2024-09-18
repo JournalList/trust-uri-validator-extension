@@ -125,7 +125,7 @@ function showTrustPopup(targetNode: Node, trustResult: lookupTrustUriResult) {
             [
                 {
                     title: 'Error',
-                    Message: `This page is not listed in the manifest at ${getBaseURL(
+                    Message: `This page is not listed in the trust.txt file at ${getBaseURL(
                         trustResult.baseurl,
                     )}`,
                 },
@@ -142,7 +142,7 @@ function showTrustPopup(targetNode: Node, trustResult: lookupTrustUriResult) {
             [
                 {
                     title: 'Error',
-                    Message: `Failed to fetch manifest from ${getBaseURL(
+                    Message: `Failed to fetch trust.txt file from ${getBaseURL(
                         trustResult.baseurl,
                     )}`,
                 },
