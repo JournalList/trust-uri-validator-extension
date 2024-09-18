@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" style="height: 400px; width: 400px;">
+
+<head>
+  <title>Trust.txt Browser Extension</title>
+  <link rel="stylesheet" href="popup.css">
+  <script type="module" src="popup.js"></script>
+</head>
+
+<body>
+  <div>
+    <button class="tab active" data-tab="origin">Origin</button>
+    <button class="tab" data-tab="about">About</button>
+    <button class="tab" data-tab="options">Options</button>
+  </div>
+  <div>
+    <div id="origin" class="tab-content active-content">
+      <h1>Trust Validation</h1>
+      <div id="no-origin">
+        <p>No trust origin detected on this page. Right-click on a trust URI (e.g., <code>trust://example.com!</code>) to validate it.</p>
+      </div>
+      <div id="origin-info"></div>
+    </div>
+
+    <div id="about" class="tab-content">
+      <h1>Trust.txt Browser Extension</h1>
+      <p>This is a browser extension for validating trust URI. It is based on the <a href="https://microsoft.github.io/xpoc-framework/" target="_blank">sample XPOC Browser Extension</a></p>
+    </div>
+
+    <div id="options" class="tab-content">
+      <h1>Options</h1>
+      <hr>
+      <div id="auto-verify-toggle-option">
+        <p>Check the following box to auto-validate trust URIs in a page, instead of manually validating them through the context menu.</p>
+        <input type="checkbox" id="auto-verify-trust-uri-toggle">
+        <label for="auto-verify-trust-uri-toggle">Verify trust URI automatically</label>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>
