@@ -48,5 +48,10 @@
                 "<all_urls>"
             ]
         }
-    ]
+    ],
+    "browser_specific_settings": {
+      "gecko": {
+        "id": "ralph@journallist.net",
+        "strict_min_version": "115.0"
+    }
 }
