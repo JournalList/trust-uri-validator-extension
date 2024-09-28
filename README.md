@@ -38,7 +38,4 @@ Firefox requires additional extension permissions to download manifests from ext
 
 ## Usage
 
-When visiting a page with a Trust URI (for example, `trust://example.com!`), right-click on the URI text and select **Verify Trust URI link** from the context menu. The extension will fetch the corresponding trust.txt file and determine if the current page is indeed listed within it. The extension can automatically find and verify the Trust URIs in a page if the extension's **Verify Trust URI automatically** option is enabled (in the popup's Options tab).
-
-# TODO before upstream PR
-* change XPOC icons
+When visiting a page with a Trust URI (for example, `trust://example.com! `), right-click on the URI text and select **Verify Trust URI link** from the context menu. The extension will fetch the corresponding trust.txt file and determine if the current page is indeed listed within it. The extension can automatically find and verify the Trust URIs in a page if the extension's **Verify Trust URI automatically** option is enabled (in the popup's Options tab).
