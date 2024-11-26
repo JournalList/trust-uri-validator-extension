@@ -129,7 +129,7 @@ async function showResults() {
         const trustResult = Object.values(
             trustResults[0],
         )[0] as lookupTrustUriResult;
-        console.log(`Trust result: ${trustResult.type}`);
+        console.log('Trust result:', trustResult.type);
         if (trustResult.type === 'account') {
             let account = '';
             let platform = '';

@@ -60,22 +60,22 @@ contextMenuRequest(async (info, clickedText, tab) => {
 */
 chrome.tabs.onActivated.addListener((activeInfo) => {
     // activeInfo.tabId will give you the ID of the newly activated tab
-    console.log(`Tab ${activeInfo.tabId} was activated`);
+    console.log('Tab', activeInfo.tabId, 'was activated');
     // display the default icon first
     updateActionIcon('icons/unknown128x128.png');
     // You can retrieve more information about the tab using chrome.tabs.get
     chrome.tabs.get(activeInfo.tabId, function (tab) {
-        console.log(`The active tab's URL is ${tab.url}`);
+        console.log('The active tab\'s URL is', tab.url);
         // check if we have an origin result for this url
         getLocalStorage('trustResults').then((storageObj) => {
             const currentTabUrl = tab.url as string;
             if (storageObj.trustResults[currentTabUrl]) {
-                console.log(`Found results for ${currentTabUrl}`);
+                console.log('Found results for', currentTabUrl);
                 // we already have a result for this url, so update the icon
                 const trustResult = storageObj.trustResults[currentTabUrl] as {
                     [trustUri: string]: lookupTrustUriResult;
                 };
-                console.log(`trustResult: ${JSON.stringify(trustResult)}`);
+                console.log('trustResult:', JSON.stringify(trustResult));
                 const type = trustResult[Object.keys(trustResult)[0]].type;
                 if (type === 'account') {
                     updateActionIcon('icons/valid128x128.png');
@@ -119,9 +119,9 @@ async function storeTrustResult(
     trustUri: string,
     result: lookupTrustUriResult,
 ): Promise<void> {
-    console.log(`storing origin result for ${url} and ${trustUri}`);
+    console.log('storing origin result for', url, 'and', trustUri);
     // update the toolbar icon
-    console.log(`origin result: ${result.type}`);
+    console.log('origin result:', result.type);
     if (result.type === 'error' || result.type === 'notFound') {
         // "notFound" in manifest is also an error
         await updateActionIcon('icons/invalid128x128.png');

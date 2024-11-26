@@ -3,7 +3,7 @@
 
 import { lookupTrustUri } from './xpoc-lib.js';
 
-console.log('offscreen.js loaded');
+console.log('Validator offscreen.js loaded');
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request?.type === 'lookupTrustUri') {

@@ -70,7 +70,7 @@ async function fetchWithTimeout(
 
     const response: Response | Error = await fetch(url, { ...options, signal })
         .catch((error) => {
-            console.log('fetch error', error);
+            console.log('Validator: fetch error', error);
             // if the fetch was aborted, throw a timeout error instead
             if (error.name === 'AbortError') {
                 return new Error(`HTTP timeout of ${timeout}ms to ${url}`);
@@ -245,11 +245,11 @@ export async function lookupTrustUri(
     tabUrl: string,
     trustUrl: string,
 ): Promise<lookupTrustUriResult> {
-    console.log('lookupTrustUri called', tabUrl, trustUrl);
+    console.log('Validator: lookupTrustUri called', tabUrl, trustUrl);
     const trustTxtFile = await downloadTrustTxt(trustUrl);
 
     if (trustTxtFile instanceof Error) {
-        console.log('Error fetching trust.txt file:', trustTxtFile.message);
+        console.log('Validator: Error fetching trust.txt file:', trustTxtFile.message);
         return {
             type: 'error',
             baseurl: trustUrl,
@@ -264,6 +264,7 @@ export async function lookupTrustUri(
         const platform = Platforms.isSupportedAccountUrl(account)
             ? Platforms.getPlatformFromAccountUrl(account)
             : undefined;
+        console.log('Validator: platform', platform);
         if (platform && platform?.isValidAccountUrl(tabUrl)) {
             const canonicalizedTabUrl = platform.canonicalizeAccountUrl(tabUrl);
             const canonicalizedAccountUrl = platform.canonicalizeAccountUrl(account);
@@ -279,9 +280,9 @@ export async function lookupTrustUri(
         }
         return false;
     });
-
+    
     if (matchingAccountUrl) {
-        console.log('Content found in trust.txt file', matchingAccountUrl);
+        console.log('Validator: Content found in trust.txt file', matchingAccountUrl);
         const platform = Platforms.getPlatformFromAccountUrl(matchingAccountUrl)?.DisplayName || '';
         let account = matchingAccountUrl;
         if (platform) {
@@ -300,7 +301,29 @@ export async function lookupTrustUri(
             }
         };
     }
-
-    console.log('Content not found in manifest');
+    // check each trust.txt file member entry to see if it matches the current tab url
+    const tabDomain = new URL(tabUrl).hostname;
+    console.log('Validator: tabDomain', tabDomain);
+    let memberFound = false;
+    for (let i = 0; i < trustTxtFile.member.length; i++) {
+        if (trustTxtFile.member[i].includes(tabDomain)) {
+            memberFound = true;
+            break;
+        }
+    }
+    console.log('Validator: memberFound', memberFound);
+    if (memberFound) {
+        return {
+            type: 'account',
+            name: tabDomain,
+            baseurl: getUrlFromUri(trustUrl),
+            version: 'trust.txt-draft00',
+            account: {
+                account: tabDomain,
+                platform: 'member'
+            }
+        };
+    }
+    console.log('Validator:', tabUrl, 'not found in', trustUrl);
     return { type: 'notFound', baseurl: trustUrl };
 }
