@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Trust URI Validator Extension",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Validates Trust URIs",
     "permissions": [
         "tabs",
@@ -54,4 +54,5 @@
         "id": "ralph@journallist.net",
         "strict_min_version": "115.0"
     }
+  }
 }
