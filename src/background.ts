@@ -1,10 +1,16 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
+import { debug } from './xpoc-lib';
 
 import { getLocalStorage, setLocalStorage } from './storage.js';
 import { lookupTrustUri, type lookupTrustUriResult } from './xpoc-lib.js';
 import { contextMenuRequest, clickedText } from './context.js';
 
+// define icon types (checkmark, invalid, warning, and unknown)
+const CHECKMARK_TYPE = 'icons/valid128x128.png';
+const INVALID_TYPE = 'icons/invalid128x128.png';
+const WARNING_TYPE = 'icons/warning128x128.png';
+const UNKNOWN_TYPE = 'icons/unknown128x128.png';
 /*
     Represents a result set for a trust URI lookup
 */
@@ -13,7 +19,6 @@ export type trustResultSet = {
         [trustUri: string]: lookupTrustUriResult;
     };
 };
-
 /*
     Runs only when the extension is installed for the first time.
 */
@@ -28,7 +33,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 */
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.action === 'lookupTrustUri') {
-        console.log('Background: message = lookupTrustUri');
+        if (debug) { console.log('Validator - onMessage.addListener: message = lookupTrustUri'); }
         const trustUri = message.trustUri;
         const tabUrl = (sender.tab as chrome.tabs.Tab).url as string;
         lookupTrustUri(sender.tab?.url as string, trustUri).then((result) => {
@@ -48,7 +53,7 @@ contextMenuRequest(async (info, clickedText, tab) => {
         const tabUrl = (tab as chrome.tabs.Tab).url as string;
         const trustUrl = clickedText;
         const result = await lookupTrustUri(tabUrl, trustUrl);
-        if (result.type === 'account') {
+        if (result.type === 'account' || result.type === 'multiple') {
             await storeTrustResult(tabUrl as string, trustUrl, result);
         }
         return result;
@@ -60,27 +65,29 @@ contextMenuRequest(async (info, clickedText, tab) => {
 */
 chrome.tabs.onActivated.addListener((activeInfo) => {
     // activeInfo.tabId will give you the ID of the newly activated tab
-    console.log('Tab', activeInfo.tabId, 'was activated');
+    if (debug) { console.log('Validator - onActivated.addListener: Tab', activeInfo.tabId, 'was activated'); }
     // display the default icon first
-    updateActionIcon('icons/unknown128x128.png');
+    updateActionIcon(UNKNOWN_TYPE);
     // You can retrieve more information about the tab using chrome.tabs.get
     chrome.tabs.get(activeInfo.tabId, function (tab) {
-        console.log('The active tab\'s URL is', tab.url);
+        if (debug) { console.log('Validator - onActivated.addListener: The active tab\'s URL is', tab.url); }
         // check if we have an origin result for this url
         getLocalStorage('trustResults').then((storageObj) => {
             const currentTabUrl = tab.url as string;
             if (storageObj.trustResults[currentTabUrl]) {
-                console.log('Found results for', currentTabUrl);
+                if (debug) { console.log('Validator - onActivated.addListener: Found results for', currentTabUrl); }
                 // we already have a result for this url, so update the icon
                 const trustResult = storageObj.trustResults[currentTabUrl] as {
                     [trustUri: string]: lookupTrustUriResult;
                 };
-                console.log('trustResult:', JSON.stringify(trustResult));
-                const type = trustResult[Object.keys(trustResult)[0]].type;
-                if (type === 'account') {
-                    updateActionIcon('icons/valid128x128.png');
-                } else if (type === 'notFound' || type === 'error') {
-                    updateActionIcon('icons/invalid128x128.png');
+                if (debug) { console.log('Validator - onActivated.addListener: trustResult', JSON.stringify(trustResult)); }
+                const result = trustResult[Object.keys(trustResult)[0]];
+                if (result.type === 'account') {
+                    updateActionIcon(CHECKMARK_TYPE);
+                } else if (result.type === 'multiple') {
+                    updateActionIcon(getIconType(result.list));
+                } else if (result.type === 'notFound' || result.type === 'error') {
+                    updateActionIcon(INVALID_TYPE);
                 }
             }
         });
@@ -119,14 +126,15 @@ async function storeTrustResult(
     trustUri: string,
     result: lookupTrustUriResult,
 ): Promise<void> {
-    console.log('storing origin result for', url, 'and', trustUri);
+    if (debug) { console.log('Validator - storeTrustResult: storing origin result for url', url, ', trustUri', trustUri, ', result', result); }
     // update the toolbar icon
-    console.log('origin result:', result.type);
     if (result.type === 'error' || result.type === 'notFound') {
         // "notFound" in manifest is also an error
-        await updateActionIcon('icons/invalid128x128.png');
+        await updateActionIcon(INVALID_TYPE);
+    } else if (result.type === 'multiple') {
+        await updateActionIcon(getIconType(result.list));
     } else {
-        await updateActionIcon('icons/valid128x128.png');
+        await updateActionIcon(CHECKMARK_TYPE);   
     }
     // store the result
     const trustResultsSet = (await getLocalStorage('trustResults')) as {
@@ -135,4 +143,42 @@ async function storeTrustResult(
     trustResultsSet.trustResults[url] = trustResultsSet.trustResults[url] || {};
     trustResultsSet.trustResults[url][trustUri] = result;
     await setLocalStorage(trustResultsSet);
+}
+/**
+ * Returns the appropriate icon type based on multiple status results
+ */
+export function getIconType (list: [{status: string, domain: string, message: string}]) {
+    if (debug) { console.log('Validator - getIconType: list', list); }
+    let type = INVALID_TYPE;
+    let found = false;
+    let notfound = false;
+    let error = false;
+    for (const item of list) {
+        switch (item.status) {
+            case 'found':
+                found = true;
+                break;
+            case 'not found':
+                notfound = true;
+                break;
+            case 'error':
+                error = true;
+                break;
+        }
+    }
+    if (debug) { console.log('Validator - getIconType: found', found, 'notfound', notfound, 'error', error); }
+    // If no corresponding attribute entry found, use 'error' icon 
+    if (!found) {
+        type = INVALID_TYPE;
+    } else {
+        // If a corresponding attribute entry is found and there are no 'not found' and 'error' status, use 'checkmark' icon
+        if (!notfound && !error) {
+            type = CHECKMARK_TYPE;
+        } else {
+            // Otherwise use 'warning' icon
+            type = WARNING_TYPE;
+        }
+    }
+    if (debug) { console.log('Validator - getIconType: type', type); }
+    return (type)
 }

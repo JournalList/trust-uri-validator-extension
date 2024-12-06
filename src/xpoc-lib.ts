@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
+export const debug = false;
+
 import {
     Platforms,
     type Account
@@ -41,6 +43,10 @@ function getUrlFromUri(uri: string): string {
     '/.well-known/trust.txt';
 }
 
+function getDomainFromUrl (url: string): string {
+    return getBaseURL(url).replace('www.','')
+}
+
 /**
  * Fetches data from the specified URL with a timeout.
  * @param url - The URL to fetch data from.
@@ -53,6 +59,7 @@ async function fetchWithTimeout(
     options: RequestInit = {},
     timeout = DOWNLOAD_TIMEOUT,
 ): Promise<Response | Error> {
+    if (debug) { console.log('Validator - fetchWithTimeout:', url, options, timeout); }
     // add controller to options so we can abort the fetch on timeout
     const controller = new AbortController();
     const signal = controller.signal;
@@ -70,7 +77,7 @@ async function fetchWithTimeout(
 
     const response: Response | Error = await fetch(url, { ...options, signal })
         .catch((error) => {
-            console.log('Validator: fetch error', error);
+            if (debug) { console.log('Validator - fetchWithTimeout: fetch error', error); }
             // if the fetch was aborted, throw a timeout error instead
             if (error.name === 'AbortError') {
                 return new Error(`HTTP timeout of ${timeout}ms to ${url}`);
@@ -117,6 +124,15 @@ export type lookupTrustUriResult =
           version: string;
           account: Account;
       }
+    | {
+        type: 'multiple';
+        list:
+            [{
+                status: string,
+                domain: string,
+                message: string
+            }]
+    }
     | {
           type: 'notFound';
           baseurl: string;
@@ -236,94 +252,142 @@ function parseTrustTxt(trustTxtContent: string): TrustTxtFile {
 }
 
 /**
- * Looks up the trust URI for a given tab URL and trust URL.
+ * Looks up the trust URI for the given tab URL and trust URI.
  * @param tabUrl The URL of the tab.
- * @param xpocUrl The URL of the trust.txt file.
+ * @param trustUri The Trust URI that references the domain for the trust.txt file.
  * @returns A promise that resolves to the lookup result.
  */
 export async function lookupTrustUri(
     tabUrl: string,
-    trustUrl: string,
+    trustUri: string,
 ): Promise<lookupTrustUriResult> {
-    console.log('Validator: lookupTrustUri called', tabUrl, trustUrl);
-    const trustTxtFile = await downloadTrustTxt(trustUrl);
+    if (debug) { console.log('Validator - lookupTrustUri:', tabUrl, trustUri); }
+    const trustTxtFile = await downloadTrustTxt(trustUri);
 
     if (trustTxtFile instanceof Error) {
-        console.log('Validator: Error fetching trust.txt file:', trustTxtFile.message);
+        if (debug) { console.log('Validator - lookupTrustUri: Error fetching trust.txt file:', trustTxtFile.message); }
         return {
             type: 'error',
-            baseurl: trustUrl,
+            baseurl: trustUri,
             message: `Error fetching trust.txt file: ${trustTxtFile.message}`,
         };
     }
+    // check if the trustUri domain and the tabUrl domain match
+    const tabDomain = new URL (tabUrl).hostname.replace('www.','');
+    const trustDomain = new URL (getUrlFromUri(trustUri)).hostname;
+    if (debug) { console.log('Validator - lookupTrustUri: tabDomain', tabDomain, 'trustDomain', trustDomain); }
+    if (tabDomain != trustDomain) {
+        // check each trust.txt file social account to see if it matches the current tab url
+        tabUrl = getBaseURL(tabUrl as string);
+        const matchingAccountUrl = trustTxtFile.social?.find((account: string) => {
+            // get the platform object for this account
+            const platform = Platforms.isSupportedAccountUrl(account)
+                ? Platforms.getPlatformFromAccountUrl(account)
+                : undefined;
+            if (debug) { console.log('Validator - lookupTrustUri: platform', platform); }
+            if (platform && platform?.isValidAccountUrl(tabUrl)) {
+                const canonicalizedTabUrl = platform.canonicalizeAccountUrl(tabUrl);
+                const canonicalizedAccountUrl = platform.canonicalizeAccountUrl(account);
+                return (
+                    canonicalizedTabUrl.account.toLowerCase() === canonicalizedAccountUrl.account.toLowerCase()
+                );
+            }
+            // tab url possibly matches this account but is not a supported platform
+            else {
+                if (tabUrl === getBaseURL(account)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        
+        if (matchingAccountUrl) {
+            if (debug) { console.log('Validator - lookupTrustUri: Content found in trust.txt file', matchingAccountUrl); }
+            const platform = Platforms.getPlatformFromAccountUrl(matchingAccountUrl)?.DisplayName || '';
+            let account = matchingAccountUrl;
+            if (platform) {
+                account = Platforms.getPlatform(platform).canonicalizeAccountUrl(matchingAccountUrl).account;
+            }
+            const url = getUrlFromUri(trustUri);
+            const domain = new URL(url).hostname;
+            return {
+                type: 'account',
+                name: domain,
+                baseurl: domain,
+                version: 'trust.txt-draft00',
+                account: {
+                    account: account,
+                    platform: platform
+                }
+            };
+        }
+        // check each trust.txt file member entry to see if it matches the current tab url
+        // const tabDomain = new URL(tabUrl).hostname;
+        if (debug) { console.log('Validator - lookupTrustUri: tabDomain', tabDomain); }
+        let memberFound = false;
+        for (let i = 0; i < trustTxtFile.member.length; i++) {
+            if (trustTxtFile.member[i].includes(tabDomain)) {
+                memberFound = true;
+                break;
+            }
+        }
+        if (debug) { console.log('Validator - lookupTrustUri: memberFound', memberFound); }
+        if (memberFound) {
+            return {
+                type: 'account',
+                name: tabDomain,
+                baseurl: getUrlFromUri(trustUri),
+                version: 'trust.txt-draft00',
+                account: {
+                    account: tabDomain,
+                    platform: 'member'
+                }
+            };
+        }
+        if (debug) { console.log('Validator - lookupTrustUri:', tabUrl, 'not found in', trustUri); }
+        return { type: 'notFound', baseurl: trustUri };
+    } else {
+        if (debug) { console.log('Validator - lookupTrustUri: tabDomain == trustUrl'); }
+        // Send a request to the WP validator plugin
+        const url = "https://journallist.net/wp-json/trust-txt/v1/validate";
+        const data = {
+        url: tabUrl
+        };
+        
+        let count = 0;
+        const results: lookupTrustUriResult = {
+            type: "multiple",
+            list: [{
+                status: "",
+                domain: "",
+                message: ""
+            }]
+        };
 
-    // check each trust.txt file social account to see if it matches the current tab url
-    tabUrl = getBaseURL(tabUrl as string);
-    const matchingAccountUrl = trustTxtFile.social?.find((account: string) => {
-        // get the platform object for this account
-        const platform = Platforms.isSupportedAccountUrl(account)
-            ? Platforms.getPlatformFromAccountUrl(account)
-            : undefined;
-        console.log('Validator: platform', platform);
-        if (platform && platform?.isValidAccountUrl(tabUrl)) {
-            const canonicalizedTabUrl = platform.canonicalizeAccountUrl(tabUrl);
-            const canonicalizedAccountUrl = platform.canonicalizeAccountUrl(account);
-            return (
-                canonicalizedTabUrl.account.toLowerCase() === canonicalizedAccountUrl.account.toLowerCase()
-            );
-        }
-        // tab url possibly matches this account but is not a supported platform
-        else {
-            if (tabUrl === getBaseURL(account)) {
-                return true;
+        await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
             }
-        }
-        return false;
-    });
-    
-    if (matchingAccountUrl) {
-        console.log('Validator: Content found in trust.txt file', matchingAccountUrl);
-        const platform = Platforms.getPlatformFromAccountUrl(matchingAccountUrl)?.DisplayName || '';
-        let account = matchingAccountUrl;
-        if (platform) {
-            account = Platforms.getPlatform(platform).canonicalizeAccountUrl(matchingAccountUrl).account;
-        }
-        const url = getUrlFromUri(trustUrl);
-        const domain = new URL(url).hostname;
-        return {
-            type: 'account',
-            name: domain,
-            baseurl: domain,
-            version: 'trust.txt-draft00',
-            account: {
-                account: account,
-                platform: platform
+            return response.json();
+        })
+        .then(data => {
+            if (debug) { console.log("Validator - lookupTrustUri: REST API response:", data); }
+            for (const obj of data) {
+                results.list[count] = {status: obj.status, domain: obj.domain, message: obj.message};
+                count += 1;
             }
-        };
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+        if (debug) { console.log("Validator - lookupTrustUri: results:", results); }
+        return results;
     }
-    // check each trust.txt file member entry to see if it matches the current tab url
-    const tabDomain = new URL(tabUrl).hostname;
-    console.log('Validator: tabDomain', tabDomain);
-    let memberFound = false;
-    for (let i = 0; i < trustTxtFile.member.length; i++) {
-        if (trustTxtFile.member[i].includes(tabDomain)) {
-            memberFound = true;
-            break;
-        }
-    }
-    console.log('Validator: memberFound', memberFound);
-    if (memberFound) {
-        return {
-            type: 'account',
-            name: tabDomain,
-            baseurl: getUrlFromUri(trustUrl),
-            version: 'trust.txt-draft00',
-            account: {
-                account: tabDomain,
-                platform: 'member'
-            }
-        };
-    }
-    console.log('Validator:', tabUrl, 'not found in', trustUrl);
-    return { type: 'notFound', baseurl: trustUrl };
 }

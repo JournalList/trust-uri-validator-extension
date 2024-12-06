@@ -1,13 +1,16 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
+import { debug } from './xpoc-lib';
 
 import { type lookupTrustUriResult } from './xpoc-lib';
+import { getIconUrl } from './content';
 
-export const CHECKMARK_URL: string = chrome.runtime.getURL(
-    'icons/checkmark.svg',
-);
+// define icon types (checkmark, invalid, and warning)
+export const CHECKMARK_URL: string = chrome.runtime.getURL('icons/checkmark.svg',);
 export const INVALID_URL: string = chrome.runtime.getURL('icons/invalid.svg');
 export const WARNING_URL: string = chrome.runtime.getURL('icons/warning.svg');
+export const UNKOWN_URL: string = chrome.runtime.getURL('icons/unknown.svg');
+
 const PATTERN = /trust:\/\/([a-zA-Z0-9.-]+)(\/[^!\s<]*)?!?/;
 
 /* 
@@ -16,13 +19,12 @@ const PATTERN = /trust:\/\/([a-zA-Z0-9.-]+)(\/[^!\s<]*)?!?/;
 */
 export class Icon {
     img: Node;
-
     constructor(
         public node: Node,
         public trustUri: string,
         public status: lookupTrustUriResult,
     ) {
-        this.img = Icon.createIcon(status.type);
+        this.img = Icon.createIcon(status);
         this.setIcon();
     }
 
@@ -32,11 +34,11 @@ export class Icon {
      * @returns The created HTMLImageElement representing the icon.
      * @throws Error if the status is unknown.
      */
-    static createIcon(
-        status: 'notFound' | 'error' | 'account' | 'warning',
+    static createIcon(result: lookupTrustUriResult,
     ): HTMLImageElement {
         let path: string;
-        switch (status) {
+        if (debug) { console.log('Validator - createIcon:', result.type); }
+        switch (result.type) {
             case 'notFound':
             case 'error':
                 path = INVALID_URL;
@@ -44,8 +46,8 @@ export class Icon {
             case 'account':
                 path = CHECKMARK_URL;
                 break;
-            case 'warning':
-                path = WARNING_URL;
+            case 'multiple':
+                path = getIconUrl(result.list);
                 break;
             default:
                 throw new Error('Unknown status');

@@ -1,8 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
+import { debug } from './xpoc-lib';
 
 import { ContentPopup } from './control';
-import { Icon } from './icon';
+import { CHECKMARK_URL, Icon, INVALID_URL, WARNING_URL } from './icon';
 import DomScanner from './scanner';
 import { type lookupTrustUriResult } from './xpoc-lib';
 import { contextMenuResult, contextTarget } from './context';
@@ -11,6 +12,7 @@ const TRUSTTXT_PATTERN = /trust:\/\/([a-zA-Z0-9.-]+)(\/[^!\s<]*)?!?/;
 const skipHiddenNodes = false;
 const SUCCESS_COLOR = '#5B9BD5';
 const ERROR_COLOR = '#E43A19';
+const WARNING_COLOR = '#F5C343';
 
 /*
     Instantiate the DomScanner and popup control
@@ -23,6 +25,7 @@ const contentPopup = new ContentPopup();
     Context menu clicks are captured and handled in the background.js
 */
 contextMenuResult((result: unknown) => {
+    if (debug) { console.log('Validator - contextMenuResult:', result); }
     addIcon(contextTarget as Node);
     showTrustPopup(contextTarget as Node, result as lookupTrustUriResult);
 });
@@ -83,7 +86,7 @@ const getBaseURL = (trustUri: string): string =>
  * @param node - The node to add the icon to.
  */
 const addIcon = (node: Node) => {
-    console.log(`add: ${node.textContent}`);
+    if (debug) { console.log(`Validator - addIcon: ${node.textContent}`); }
 
     // We can choose to bypass nodes that are initially hidden. However, there's a complication if a node that
     // starts off hidden later becomes visible. In such cases, re-scanning the node when it becomes visible is a
@@ -98,13 +101,15 @@ const addIcon = (node: Node) => {
         const trustMatch = TRUSTTXT_PATTERN.exec((node as Text).textContent ?? '');
         const trustUri = trustMatch?.[0] as string;
 
+        if (debug) { console.log('Validator - addIcon: trustMatch:',trustMatch, 'trustUri:', trustUri); }
+
         lookupTrustUri(trustUri).then((result) => {
             const icon = new Icon(node, trustUri, result);
             icon.onClick = () => {
                 const trustResult = result as lookupTrustUriResult;
                 showTrustPopup(icon.img as HTMLElement, trustResult);
             };
-            console.log(`result: ${JSON.stringify(result)}`);
+            if (debug) { console.log(`Validator - addIcon: result: ${JSON.stringify(result)}`); }
         });
     }
 };
@@ -116,6 +121,7 @@ const addIcon = (node: Node) => {
  * @param {lookupTrustUriResult} trustResult - The result of the Trust URI lookup.
  */
 function showTrustPopup(targetNode: Node, trustResult: lookupTrustUriResult) {
+    if (debug) { console.log("Validator - showTrustPopup: trustResult:", trustResult); }
     if (trustResult.type === 'notFound') {
         contentPopup.show(
             targetNode as HTMLElement,
@@ -185,6 +191,22 @@ function showTrustPopup(targetNode: Node, trustResult: lookupTrustUriResult) {
             );
         }
     }
+    if (trustResult.type === 'multiple') {
+        const tables = [{title: "", Message: ""}];
+        let count = 0;
+        for (const item of trustResult.list) {
+            tables[count] = {title: item.status, Message: item.message};
+            count += 1;
+        }
+        if (debug) { console.log("Validator - showTrustPopup: tables:", tables); }
+        contentPopup.show(
+            targetNode as HTMLElement,
+            getPopUpMessage(trustResult.list),
+            getPopUpColor(trustResult.list),
+            chrome.runtime.getURL(getIconUrl(trustResult.list)),
+            tables
+        );
+    }
 }
 
 function nodeTest(node: Node): boolean {
@@ -199,17 +221,17 @@ function nodeTest(node: Node): boolean {
 }
 
 function addCallback(node: Node): void {
-    console.log(`Scanner2: add: ${node.textContent}`);
+    if (debug) { console.log(`Validator - addCallback: Scanner2: add: ${node.textContent}`); }
     addIcon(node);
 }
 
 function removeCallback(node: Node): void {
-    console.log(`Scanner2: remove: ${node.textContent}`);
+    if (debug) { console.log(`Validator - removeCallback: Scanner2: remove: ${node.textContent}`); }
     if (
         (node as HTMLElement).nodeName === 'IMG' &&
         (node as HTMLElement).hasAttribute('trust')
     ) {
-        console.log(`remove: ${node as HTMLElement}`);
+        if (debug) { console.log(`Validator removeCallback: remove: ${node as HTMLElement}`); }
     }
 }
 
@@ -235,4 +257,120 @@ function isStyleVisible(element: Element): boolean {
         rect.width === 0 ||
         rect.height === 0
     );
+}
+
+/**
+ * Returns the appropriate icon type based on multiple status results
+ * @param {[{status: string, domain: string, message: string}]} list
+ * @returns {string}
+ */
+export function getIconUrl (list: [{status: string, domain: string, message: string}]) {
+    let iconType = INVALID_URL;
+    let found = false;
+    let notfound = false;
+    let error = false;
+    for (const item of list) {
+        switch (item.status) {
+            case 'found':
+                found = true;
+                break;
+            case 'not found':
+                notfound = true;
+                break;
+            case 'error':
+                error = true;
+                break;
+        }
+    }
+    // If no corresponding attribute entry found, use 'error' icon 
+    if (!found) {
+        iconType = INVALID_URL;
+    } else {
+        // If a corresponding attribute entry is found and there are no 'not found' and 'error' status, use 'checkmark' icon
+        if (!notfound && !error) {
+            iconType = CHECKMARK_URL;
+        } else {
+            // Otherwise use 'warning' icon
+            iconType = WARNING_URL;
+        }
+    }
+    return (iconType)
+}
+
+/**
+ * Returns the appropriate color based on multiple status results
+ */
+function getPopUpColor (list: [{status: string, domain: string, message: string}]) {
+    if (debug) { console.log('Validator - getPopUpColor: list', list); }
+    let color = ERROR_COLOR;
+    let found = false;
+    let notfound = false;
+    let error = false;
+    for (const item of list) {
+        switch (item.status) {
+            case 'found':
+                found = true;
+                break;
+            case 'not found':
+                notfound = true;
+                break;
+            case 'error':
+                error = true;
+                break;
+        }
+    }
+    if (debug) { console.log('Validator - getPopUpColor: found', found, 'notfound', notfound, 'error', error); }
+    // If no corresponding attribute entry found, use 'error' icon 
+    if (!found) {
+        color = ERROR_COLOR;
+    } else {
+        // If a corresponding attribute entry is found and there are no 'not found' and 'error' status, use 'checkmark' icon
+        if (!notfound && !error) {
+            color = SUCCESS_COLOR;
+        } else {
+            // Otherwise use 'warning' icon
+            color = WARNING_COLOR;
+        }
+    }
+    if (debug) { console.log('Validator - getPopUpColor: list', color); }
+    return (color)
+}
+
+/**
+ * Returns the appropriate color based on multiple status results
+ */
+function getPopUpMessage (list: [{status: string, domain: string, message: string}]) {
+    if (debug) { console.log('Validator - getPopUpColor: list', list); }
+    let message = 'Trust URI Error';
+    let found = false;
+    let notfound = false;
+    let error = false;
+    for (const item of list) {
+        switch (item.status) {
+            case 'found':
+                found = true;
+                break;
+            case 'not found':
+                notfound = true;
+                break;
+            case 'error':
+                error = true;
+                break;
+        }
+    }
+    if (debug) { console.log('Validator - getPopUpMessage: found', found, 'notfound', notfound, 'error', error); }
+    // If no corresponding attribute entry found, use 'error' icon 
+    if (!found) {
+        message = 'Trust URI Error';
+    } else {
+        // If a corresponding attribute entry is found and there are no 'not found' and 'error' status, use 'checkmark' icon
+        if (!notfound && !error) {
+            message = 'Trust URI Match';
+        } else {
+            // Otherwise use 'warning' icon
+            message = 'Trust URI Warning';
+        }
+    }
+    if (debug) { console.log('Validator - getPopUpMessage: list', message); }
+    return (message)
 }

@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
+import { debug } from './xpoc-lib';
 
 import { type trustResultSet } from './background';
 import { getLocalStorage } from './storage';
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function (): void {
         });
     });
     showResults().then(() => {
-        console.log('results shown');
+        if (debug) { console.log('Validator - addEventListener: results shown'); }
     });
 });
 
@@ -37,7 +38,7 @@ chrome.storage.local.get(['autoVerifyTrustUris'], (result) => {
 });
 
 autoVerifyTrustUris.addEventListener('change', async () => {
-    console.log('autoVerifyTrustUris changed');
+    if (debug) { console.log('Validator - addEventListener: autoVerifyTrustUris changed'); }
     const checked = autoVerifyTrustUris.checked;
     chrome.storage.local.set({ autoVerifyTrustUris: checked }, async () => {
         const activeTab = await getActiveTab();
@@ -47,7 +48,7 @@ autoVerifyTrustUris.addEventListener('change', async () => {
                 autoScan: checked,
             });
         }
-        console.log('autoVerifyTrustUris is set to ' + checked);
+        if (debug) { console.log('Validator = addEventListener: autoVerifyTrustUris is set to ' + checked); }
     });
 });
 
@@ -129,7 +130,7 @@ async function showResults() {
         const trustResult = Object.values(
             trustResults[0],
         )[0] as lookupTrustUriResult;
-        console.log('Trust result:', trustResult.type);
+        if (debug) { console.log('Validator - showResults: Trust result:', trustResult.type); }
         if (trustResult.type === 'account') {
             let account = '';
             let platform = '';
